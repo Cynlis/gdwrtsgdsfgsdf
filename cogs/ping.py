@@ -16,13 +16,15 @@ class Ping(commands.Cog):
 
         start = round(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
 
-        embed2 = discord.Embed(title=f'Pinging..', colour=0x2f3136)
+        embed2 = discord.Embed(title=f'Pinging..', colour=0x363940)
         msg = await ctx.send(embed=embed2)
 
         end = round(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
         elapsed = round(end - start)
 
-        embed = discord.Embed(title=f'Roundtrip: {elapsed}ms.\nHeartbeat: {latency}ms.', colour=0x2f3136)
+        embed = discord.Embed(colour=0x363940)
+        embed.set_author(name=f"Roundtime : {elapsed}ms\nHeartbeat : {latency}ms", icon_url=self.bot.user.avatar_url)
+
         await msg.edit(embed=embed)
 
 def setup(bot):
