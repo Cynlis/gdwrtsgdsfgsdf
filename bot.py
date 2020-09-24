@@ -1,142 +1,69 @@
 import discord
-import env
+import wavelink
 from discord.ext import commands
-import random
-import time
+
+
+class Bot(commands.Bot):
+
+    def __init__(self):
+        super(Bot, self).__init__(command_prefix=['audio ', 'wave ','aw '])
+
+        self.add_cog(Music(self))
+
+    async def on_ready(self):
+        print(f'Logged in as {self.user.name} | {self.user.id}')
+
+
+class Music(commands.Cog):
+
+    def __init__(self, bot):
+        self.bot = bot
+
+        if not hasattr(bot, 'wavelink'):
+            self.bot.wavelink = wavelink.Client(bot=self.bot)
+
+        self.bot.loop.create_task(self.start_nodes())
+
+    async def start_nodes(self):
+        await self.bot.wait_until_ready()
+
+        # Initiate our nodes. For this example we will use one server.
+        # Region should be a discord.py guild.region e.g sydney or us_central (Though this is not technically required)
+        await self.bot.wavelink.initiate_node(host='0.0.0.0',
+                                              port=80,
+                                              rest_uri='http://0.0.0.0:2333',
+                                              password='youshallnotpass',
+                                              identifier='TEST',
+                                              region='us_central')
+
+    @commands.command(name='connect')
+    async def connect_(self, ctx, *, channel: discord.VoiceChannel=None):
+        if not channel:
+            try:
+                channel = ctx.author.voice.channel
+            except AttributeError:
+                raise discord.DiscordException('No channel to join. Please either specify a valid channel or join one.')
+
+        player = self.bot.wavelink.get_player(ctx.guild.id)
+        await ctx.send(f'Connecting to **`{channel.name}`**')
+        await player.connect(channel.id)
+
+    @commands.command()
+    async def play(self, ctx, *, query: str):
+        tracks = await self.bot.wavelink.get_tracks(f'ytsearch:{query}')
+
+        if not tracks:
+            return await ctx.send('Could not find any songs with that query.')
+
+        player = self.bot.wavelink.get_player(ctx.guild.id)
+        if not player.is_connected:
+            await ctx.invoke(self.connect_)
+
+        await ctx.send(f'Added {str(tracks[0])} to the queue.')
+        await player.play(tracks[0])
+
 import os
-import datetime
-import json 
-import requests
-from collections import Counter
-from discord.ext.commands import when_mentioned_or
-import googletrans
-from googletrans import Translator
-import asyncio
 
-def get_prefix(client, message):
-  try:
-    with open("prefixes.json", "r") as f:
-        prefixes = json.load(f)
-
-    e = prefixes[str(message.guild.id)]
-
-    return prefixes[str(message.guild.id)]
-  except:
-    prefixes = ['!']
-
-    return commands.when_mentioned_or(*prefixes)(client, message)
-
-client=discord.Client(shard_count=1,shard_id=1)
-client = commands.Bot(command_prefix=get_prefix, case_insensitive=True)
-client.remove_command('help')
-
-
-
-
-
-
-
-
-
-
-@client.command(aliases=["setprefix"])
-async def changeprefix(ctx, *, prefix):
-  if ctx.author.id == 229016449593769984 or ctx.author.id == 286591003794604034 or commands.has_permissions(manage_messages=True):
-    try:
-        embed = discord.Embed(
-        title=f'Prefix was changed to `{prefix}` successfully.', description='' , colour=0x2f3136)
-
-        msg = await ctx.send(embed = embed)
-        with open("prefixes.json", "r") as f:
-            prefixes = json.load(f)
-
-
-        prefixes[str(ctx.guild.id)] = prefix
-
-        with open("prefixes.json", "w") as f:
-            json.dump(prefixes, f, indent=4)
-
-    except:
-        embed = discord.Embed(
-        title=f'There was a error changing the prefix. ', description='' , colour=0x2f3136)
-
-        msg = await ctx.send(embed = embed)
-  else:
-    await ctx.send("You need manage messages perms.")
-
-
-
-@client.event
-async def on_guild_remove(guild):
-    with open("prefixes.json", "r") as f:
-        prefixes = json.load(f)
-
-
-    prefixes.pop(str(guild.id))
-
-    with open("prefixes.json", "w") as f:
-        json.dump(prefixes, f, indent=4)
-
-
-
-
-@client.event
-async def on_message(message):
-  try:
-    with open("prefixes.json", "r") as f:
-        prefixes = json.load(f)
-
-    e = prefixes[str(message.guild.id)]
-    if message.author.bot:
-        return
-    if client.user in message.mentions: 
-        embed = discord.Embed(
-        title='', description=f'Prefix: `{e}`' , colour=discord.Colour.blurple())
-
-
-
-        await message.channel.send(embed = embed)
-  except:
-    if message.author.bot:
-        return
-    if client.user in message.mentions: 
-        embed = discord.Embed(
-        title='', description=f'Prefix: `!`' , colour=discord.Colour.blurple())
-
-
-
-        await message.channel.send(embed = embed)
-
-    
-  await client.process_commands(message)
-
-
-@client.event
-async def on_ready():
-    print("Bot is ready!")
-
-@client.command()
-@commands.is_owner()
-async def restart(ctx):
-    embed = discord.Embed(
-      title='Restarting..', description='', colour=random.randint(0, 0xFFFFFF))
-  
-    m = await ctx.send(embed=embed)
-    os.system("python restart.py")
-    
-    time.sleep(0.2) # 200ms to CTR+C twice
-
-
-
-
-
-
-extensions = env.extensions
-
-
-if __name__ == '__main__':
-    for ext in extensions:
-        client.load_extension(ext)
-
-
-client.run(env.TOKEN)
+bot = Bot()
+TOKEN = os.environ.get("DISCORD_BOT_SECRET")
+bot.run(TOKEN)
